@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ammora Mini Swap — Swap $tAMM on GIWA Sepolia</title>
+<meta name="description" content="Minimal swap UI for $tAMM (tAmm Coin) on GIWA Sepolia, built on the Ammora Season 2 contracts. Testnet only, free test ETH.">
+<style>
+  :root { --bg:#0b0e14; --card:#141926; --card2:#1a2033; --text:#e8ecf4; --muted:#8b93a7;
+    --accent:#7c5cff; --accent2:#00d1a7; --border:#262d42; --danger:#ff5c7a; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    min-height:100vh; display:flex; flex-direction:column; align-items:center; padding:24px 16px 48px; }
+  header { width:100%; max-width:520px; display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  .logo { font-size:20px; font-weight:800; letter-spacing:.2px; }
+  .logo span { color:var(--accent2); }
+  .badge { font-size:11px; color:var(--muted); border:1px solid var(--border); border-radius:999px; padding:4px 10px; }
+  .card { width:100%; max-width:520px; background:var(--card); border:1px solid var(--border); border-radius:20px; padding:22px; }
+  .card h1 { font-size:22px; margin-bottom:4px; }
+  .card p.sub { color:var(--muted); font-size:13px; margin-bottom:18px; line-height:1.5; }
+  .row { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .balances { font-size:13px; color:var(--muted); margin-bottom:14px; line-height:1.7; }
+  .balances b { color:var(--text); }
+  .field { background:var(--card2); border:1px solid var(--border); border-radius:14px; padding:14px; margin-bottom:10px; }
+  .field label { display:block; font-size:12px; color:var(--muted); margin-bottom:8px; }
+  .field .inrow { display:flex; gap:10px; align-items:center; }
+  .field input { flex:1; background:transparent; border:0; outline:0; color:var(--text); font-size:22px; width:100%; }
+  .token { font-weight:700; font-size:15px; background:#232a40; border:1px solid var(--border);
+    padding:8px 12px; border-radius:999px; white-space:nowrap; }
+  .swapdir { display:flex; justify-content:center; margin:2px 0 10px; }
+  .swapdir button { background:var(--card2); border:1px solid var(--border); color:var(--text);
+    width:40px; height:40px; border-radius:50%; font-size:18px; cursor:pointer; }
+  .quote { font-size:13px; color:var(--muted); line-height:1.7; margin:6px 2px 14px; }
+  .quote b { color:var(--text); }
+  button.primary { width:100%; padding:14px; border:0; border-radius:14px; font-size:16px; font-weight:700;
+    color:#fff; background:linear-gradient(90deg,var(--accent),#5a3df0); cursor:pointer; }
+  button.primary:disabled { opacity:.45; cursor:not-allowed; }
+  button.ghost { background:transparent; border:1px solid var(--border); color:var(--text);
+    padding:9px 16px; border-radius:999px; font-size:13px; font-weight:600; cursor:pointer; }
+  #status { margin-top:14px; font-size:13px; line-height:1.6; word-break:break-word; }
+  #status a { color:var(--accent2); }
+  #status .err { color:var(--danger); }
+  #status .ok { color:var(--accent2); }
+  .info { width:100%; max-width:520px; margin-top:18px; font-size:12.5px; color:var(--muted); line-height:1.7; }
+  .info code { color:#c9d2e8; font-size:12px; word-break:break-all; }
+  .info a { color:var(--accent2); }
+  .info h2 { font-size:13px; color:var(--text); margin:12px 0 4px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Ammora <span>Mini Swap</span></div>
+  <div class="badge">GIWA Sepolia &middot; Testnet</div>
+</header>
+
+<div class="card">
+  <h1>Swap $tAMM</h1>
+  <p class="sub">Minimal exchange built on the Ammora Season 2 contracts — same pool &amp; router as
+    <a href="https://ammora.org/waitlist" target="_blank" rel="noopener" style="color:#00d1a7">ammora.org</a>.
+    Testnet only. No real money.</p>
+
+  <div class="row" style="margin-bottom:12px">
+    <button class="ghost" id="connectBtn">Connect Wallet</button>
+    <span id="account" style="font-size:13px;color:#8b93a7"></span>
+  </div>
+
+  <div class="balances" id="balances">Connect your wallet to see balances.</div>
+
+  <div class="field">
+    <label id="inLabel">You pay (GIWA ETH)</label>
+    <div class="inrow">
+      <input id="amountIn" type="number" min="0" step="any" placeholder="0.0" value="0.001">
+      <span class="token" id="inToken">ETH</span>
+    </div>
+  </div>
+
+  <div class="swapdir"><button id="flipBtn" title="Switch direction">&#8595;&#8593;</button></div>
+
+  <div class="field">
+    <label id="outLabel">You receive ($tAMM, estimated)</label>
+    <div class="inrow">
+      <input id="amountOut" type="text" placeholder="0.0" readonly>
+      <span class="token" id="outToken">$tAMM</span>
+    </div>
+  </div>
+
+  <div class="quote" id="quote">Enter an amount to get a live quote from the pool.</div>
+
+  <button class="primary" id="swapBtn" disabled>Connect wallet to swap</button>
+  <div id="status"></div>
+</div>
+
+<div class="info">
+  <h2>How it works</h2>
+  <p>Quotes come live from the graduated $tAMM pool (<code>quoteExactIn</code>). Swaps go through the
+    Ammora native router at 1% slippage, deadline now + 10 min. Buying pays GIWA ETH;
+    selling $tAMM first approves the router, then swaps back to ETH.</p>
+  <h2>Contracts (GIWA Sepolia, chain 91342)</h2>
+  <p>$tAMM token: <code>0x10B3Cc2fc981277Ada576891CF649D0ABA768B06</code><br>
+  Pool: <code>0x1ef92a6a9bb4bbed2b385dd5e688f88e7965bcf8</code><br>
+  Native router: <code>0x4FC91b90087288520A7bB4aA7Ab5441bb4E9C496</code><br>
+  WETH: <code>0x4200000000000000000000000000000000000006</code></p>
+  <h2>Need test ETH?</h2>
+  <p>Free faucets: <a href="https://faucet.giwa.io/" target="_blank" rel="noopener">faucet.giwa.io</a> &middot;
+    <a href="https://faucet.nodit.io/giwa-sepolia" target="_blank" rel="noopener">faucet.nodit.io/giwa-sepolia</a></p>
+  <p style="margin-top:10px">Built for the Ammora Season 2 Builder mission. Not affiliated with Ammora — community mini-app.</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script>
+const CHAIN_ID = 91342;
+const CHAIN_HEX = "0x164ce";
+const RPC_URL = "https://sepolia-rpc.giwa.io";
+const EXPLORER = "https://sepolia-explorer.giwa.io";
+const TOKEN = "0x10B3Cc2fc981277Ada576891CF649D0ABA768B06";
+const POOL = "0x1ef92a6a9bb4bbed2b385dd5e688f88e7965bcf8";
+const ROUTER = "0x4FC91b90087288520A7bB4aA7Ab5441bb4E9C496";
+const WETH = "0x4200000000000000000000000000000000000006";
+const ZERO = "0x0000000000000000000000000000000000000000";
+
+const POOL_ABI = ["function quoteExactIn(address tokenIn, uint256 amountIn) view returns (uint256 amountOut)"];
+const TOKEN_ABI = [
+  "function balanceOf(address) view returns (uint256)",
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "function decimals() view returns (uint8)"
+];
+const ROUTER_ABI = [
+  "function swapPoolExactInNative(address pool, uint256 minimumAmountOut, address recipient, uint256 deadline, address referrer) payable returns (uint256 amountOut)",
+  "function swapPoolExactInForNative(address pool, address tokenIn, uint256 amountIn, uint256 minimumNativeOut, address recipient, uint256 deadline, address referrer) returns (uint256 nativeOut)"
+];
+
+const readProvider = new ethers.providers.JsonRpcProvider(RPC_URL, CHAIN_ID);
+const poolRead = new ethers.Contract(POOL, POOL_ABI, readProvider);
+const tokenRead = new ethers.Contract(TOKEN, TOKEN_ABI, readProvider);
+
+let signer = null, account = null, direction = "buy"; // buy: ETH -> tAMM, sell: tAMM -> ETH
+let lastQuote = null, quoteTimer = null;
+
+const $ = id => document.getElementById(id);
+const short = a => a ? a.slice(0, 6) + "..." + a.slice(-4) : "";
+function setStatus(html) { $("status").innerHTML = html; }
+function setQuote(html) { $("quote").innerHTML = html; }
+
+async function refreshBalances() {
+  if (!account) return;
+  try {
+    const eth = await readProvider.getBalance(account);
+    const tamm = await tokenRead.balanceOf(account);
+    $("balances").innerHTML =
+      "Wallet <b>" + short(account) + "</b><br>GIWA ETH: <b>" +
+      (+ethers.utils.formatEther(eth)).toFixed(6) + "</b> &nbsp; $tAMM: <b>" +
+      (+ethers.utils.formatUnits(tamm, 6)).toFixed(6) + "</b>";
+  } catch (e) { $("balances").textContent = "Could not load balances: " + e.message; }
+}
+
+async function refreshQuote() {
+  const raw = $("amountIn").value;
+  const amt = parseFloat(raw);
+  if (!amt || amt <= 0) { $("amountOut").value = ""; lastQuote = null; setQuote("Enter an amount to get a live quote from the pool."); updateSwapBtn(); return; }
+  try {
+    if (direction === "buy") {
+      const amountIn = ethers.utils.parseEther(raw);
+      const out = await poolRead.quoteExactIn(WETH, amountIn);
+      lastQuote = { amountIn, out };
+      $("amountOut").value = (+ethers.utils.formatUnits(out, 6)).toFixed(6);
+      const minOut = out.mul(99).div(100);
+      setQuote("Live quote: <b>" + raw + " ETH &rarr; " + (+ethers.utils.formatUnits(out, 6)).toFixed(6) +
+        " $tAMM</b><br>Minimum received (1% slippage): <b>" + (+ethers.utils.formatUnits(minOut, 6)).toFixed(6) +
+        " $tAMM</b> &middot; Deadline: now + 10 min");
+    } else {
+      const amountIn = ethers.utils.parseUnits(raw, 6);
+      const out = await poolRead.quoteExactIn(TOKEN, amountIn);
+      lastQuote = { amountIn, out };
+      $("amountOut").value = (+ethers.utils.formatEther(out)).toFixed(6);
+      const minOut = out.mul(99).div(100);
+      setQuote("Live quote: <b>" + raw + " $tAMM &rarr; " + (+ethers.utils.formatEther(out)).toFixed(6) +
+        " ETH</b><br>Minimum received (1% slippage): <b>" + (+ethers.utils.formatEther(minOut)).toFixed(6) +
+        " ETH</b> &middot; Deadline: now + 10 min");
+    }
+  } catch (e) {
+    lastQuote = null; $("amountOut").value = "";
+    setQuote("Quote failed: " + (e.reason || e.message));
+  }
+  updateSwapBtn();
+}
+
+function updateSwapBtn() {
+  const btn = $("swapBtn");
+  if (!account) { btn.disabled = true; btn.textContent = "Connect wallet to swap"; return; }
+  if (!lastQuote) { btn.disabled = true; btn.textContent = "Enter an amount"; return; }
+  btn.disabled = false;
+  btn.textContent = direction === "buy" ? "Swap ETH \u2192 $tAMM" : "Swap $tAMM \u2192 ETH";
+}
+
+async function connect() {
+  if (!window.ethereum) { setStatus('<span class="err">No injected wallet found. Install MetaMask and try again.</span>'); return; }
+  try {
+    setStatus("Requesting wallet connection\u2026");
+    await window.ethereum.request({ method: "eth_requestAccounts" });
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    const net = await provider.getNetwork();
+    if (net.chainId !== CHAIN_ID) {
+      try {
+        await window.ethereum.request({ method: "wallet_switchEthereumChain", params: [{ chainId: CHAIN_HEX }] });
+      } catch (err) {
+        if (err.code === 4902) {
+          await window.ethereum.request({ method: "wallet_addEthereumChain", params: [{
+            chainId: CHAIN_HEX, chainName: "GIWA Sepolia",
+            nativeCurrency: { name: "GIWA ETH", symbol: "ETH", decimals: 18 },
+            rpcUrls: [RPC_URL], blockExplorerUrls: [EXPLORER]
+          }]});
+        } else throw err;
+      }
+    }
+    signer = provider.getSigner();
+    account = await signer.getAddress();
+    $("connectBtn").textContent = "Connected";
+    $("account").textContent = short(account);
+    setStatus('<span class="ok">Connected to GIWA Sepolia as ' + short(account) + ".</span>");
+    await refreshBalances();
+    updateSwapBtn();
+  } catch (e) {
+    setStatus('<span class="err">Connection failed: ' + (e.message || e) + "</span>");
+  }
+}
+
+async function doSwap() {
+  if (!signer || !lastQuote) return;
+  const btn = $("swapBtn");
+  btn.disabled = true; btn.textContent = "Waiting for signature\u2026";
+  try {
+    const router = new ethers.Contract(ROUTER, ROUTER_ABI, signer);
+    const token = new ethers.Contract(TOKEN, TOKEN_ABI, signer);
+    const deadline = Math.floor(Date.now() / 1000) + 600;
+    const minOut = lastQuote.out.mul(99).div(100);
+    let tx;
+    if (direction === "buy") {
+      setStatus("Sending swap: ETH \u2192 $tAMM\u2026");
+      tx = await router.swapPoolExactInNative(POOL, minOut, account, deadline, ZERO, { value: lastQuote.amountIn });
+    } else {
+      const allowance = await token.allowance(account, ROUTER);
+      if (allowance.lt(lastQuote.amountIn)) {
+        setStatus("Approving $tAMM for the router\u2026");
+        const atx = await token.approve(ROUTER, lastQuote.amountIn);
+        setStatus("Approval sent: <a href=\"" + EXPLORER + "/tx/" + atx.hash + "\" target=\"_blank\" rel=\"noopener\">" + atx.hash + "</a> — waiting for confirmation\u2026");
+        await atx.wait();
+      }
+      setStatus("Sending swap: $tAMM \u2192 ETH\u2026");
+      tx = await router.swapPoolExactInForNative(POOL, TOKEN, lastQuote.amountIn, minOut, account, deadline, ZERO);
+    }
+    setStatus("Swap sent: <a href=\"" + EXPLORER + "/tx/" + tx.hash + "\" target=\"_blank\" rel=\"noopener\">" + tx.hash + "</a> — waiting for confirmation\u2026");
+    const receipt = await tx.wait();
+    if (receipt.status === 1) {
+      setStatus('<span class="ok">Swap confirmed in block ' + receipt.blockNumber + '.</span><br>Tx: <a href="' + EXPLORER + "/tx/" + tx.hash + '" target="_blank" rel="noopener">' + tx.hash + "</a>");
+    } else {
+      setStatus('<span class="err">Transaction failed on-chain.</span><br>Tx: <a href="' + EXPLORER + "/tx/" + tx.hash + '" target="_blank" rel="noopener">' + tx.hash + "</a>");
+    }
+    await refreshBalances();
+  } catch (e) {
+    setStatus('<span class="err">Swap failed: ' + (e.reason || e.message || e) + "</span>");
+  }
+  updateSwapBtn();
+}
+
+$("connectBtn").addEventListener("click", connect);
+$("swapBtn").addEventListener("click", doSwap);
+$("amountIn").addEventListener("input", () => { clearTimeout(quoteTimer); quoteTimer = setTimeout(refreshQuote, 400); });
+$("flipBtn").addEventListener("click", () => {
+  direction = direction === "buy" ? "sell" : "buy";
+  if (direction === "buy") {
+    $("inLabel").textContent = "You pay (GIWA ETH)"; $("inToken").textContent = "ETH";
+    $("outLabel").textContent = "You receive ($tAMM, estimated)"; $("outToken").textContent = "$tAMM";
+  } else {
+    $("inLabel").textContent = "You pay ($tAMM)"; $("inToken").textContent = "$tAMM";
+    $("outLabel").textContent = "You receive (GIWA ETH, estimated)"; $("outToken").textContent = "ETH";
+  }
+  refreshQuote();
+});
+if (window.ethereum) {
+  window.ethereum.on("accountsChanged", () => location.reload());
+  window.ethereum.on("chainChanged", () => location.reload());
+}
+refreshQuote();
+</script>
+</body>
+</html>
